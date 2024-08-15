@@ -4,7 +4,7 @@ set -euo pipefail
 export ARCH="${ARCH-x86-64}"
 SCRIPTFOLDER="$(dirname "$(readlink -f "$0")")"
 
-if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+if [ $# -lt 1 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Usage: $0 VERSION"
   echo "The script will build nvidia-container-toolkit on ubuntu 18 and package it into a syseext."
   echo "A temporary directory named SYSEXTNAME in the current folder will be created and deleted again."
