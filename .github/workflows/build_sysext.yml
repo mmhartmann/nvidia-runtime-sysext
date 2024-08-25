@@ -1,0 +1,61 @@
+name: Build Sysext
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Get latest release
+        id: get_release
+        run: |
+          # Fetch release information and extract the release tag
+          RELEASE_TAG=$(curl -s https://api.github.com/repos/libnvidia-container-release-info/releases/latest | jq -r '.tag_name')
+          echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+          echo "latest release: $RELEASE_TAG"
+      
+      - name: Store artifacts
+        run: |
+          # Store the newly fetched release version in a file
+          echo "${{ steps.get_release.outputs.RELEASE_TAG }}" > libnvidia-container-release-info
+          echo "Saved ${{ steps.get_release.outputs.RELEASE_TAG }} to libnvidia-container-release-info"
+
+      - name: Upload new artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: libnvidia-container-release-info
+          path: libnvidia-container-release-info
+          
+      - uses: actions/checkout@v4
+        with:
+          path: nvidia-runtime-sysext
+
+      - name: Install prerequisites
+        run: |
+          set -euxo pipefail
+          sudo apt update -qq && sudo apt install -yqq squashfs-tools xz-utils gawk build-essential
+
+      - name: Build nvidia-container-runtime sysext
+        run: |
+          pushd nvidia-runtime-sysext
+          ./create_nvidia_runtime_sysext.sh ${{ steps.get_release.outputs.RELEASE_TAG }}
+          echo "Release version: ${{ steps.get_release.outputs.RELEASE_TAG }}" > Release.txt
+
+      - name: Create a new latest release with all artifacts
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "${{ steps.get_release.outputs.RELEASE_TAG }}"
+          tag_name: "${{ steps.get_release.outputs.RELEASE_TAG }}"
+          make_latest: true
+          files: |
+            nvidia-runtime-sysext/SHA256SUMS
+            nvidia-runtime-sysext/Release.txt
+            nvidia-runtime-sysext/*.raw
+      
