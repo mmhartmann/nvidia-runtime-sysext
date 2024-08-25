@@ -16,7 +16,7 @@ fi
 
 # Default should be: v1.14.3
 VERSION="$1"
-SYSEXTNAME="nvidia"
+SYSEXTNAME="nvidia-container-runtime"
 
 # The github release uses different arch identifiers, we map them here
 # and rely on bake.sh to map them back to what systemd expects
