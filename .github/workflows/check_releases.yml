@@ -50,4 +50,4 @@ jobs:
         if: steps.compare_release.outputs.release_changed == 'true'
         uses: benc-uk/workflow-dispatch@v1
         with:
-          workflow: publish.yml
+          workflow: build_sysext.yml
