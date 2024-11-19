@@ -45,9 +45,3 @@ jobs:
             echo "release_changed=false" >> $GITHUB_OUTPUT
             echo "Release changed: false"
           fi
-
-      - name: Call workflow to build code
-        if: steps.compare_release.outputs.release_changed == 'true'
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: build_sysext.yml
