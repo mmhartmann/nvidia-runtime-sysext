@@ -12,7 +12,7 @@ jobs:
   # This step fetches the version of the latest release of the NVIDIA/libnvidia-container repo.
   check-libnvidia-container:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name }} == 'schedule'
+    if: github.event_name == 'schedule'
     outputs:
       release_changed: ${{ steps.compare_release.outputs.release_changed }}
     steps:
@@ -53,7 +53,7 @@ jobs:
     permissions:
       contents: write 
     needs: check-libnvidia-container
-    if: ${{ github.event_name }} == 'push' || ${{needs.check-libnvidia-container.outputs.release_changed}} == true
+    if: github.event_name == 'push' || needs.check-libnvidia-container.outputs.release_changed == 'true'
     steps:
       - name: Get latest release
         id: get_release
