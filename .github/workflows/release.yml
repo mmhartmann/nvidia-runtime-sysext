@@ -1,0 +1,97 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  # This step fetches the version of the latest release of the NVIDIA/libnvidia-container repo.
+  check-libnvidia-container:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name }} == 'schedule'
+    outputs:
+      release_changed: ${{ steps.compare_release.outputs.release_changed }}
+    steps:
+      - name: Download previous release info
+        id: download_artifact
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: libnvidia-container-release-info
+          workflow_conclusion: success
+          workflow: release.yml
+          if_no_artifact_found: warn
+      - name: Get latest release
+        id: get_release
+        run: |
+          # Fetch release information and extract the release tag
+          RELEASE_TAG=$(curl -s https://api.github.com/repos/NVIDIA/libnvidia-container/releases/latest | jq -r '.tag_name')
+          echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+          echo "latest release: $RELEASE_TAG"
+      - name: Compare with previous release
+        id: compare_release
+        run: |
+          # Read the release info from the downloaded artifact
+          PREVIOUS_RELEASE=$(cat libnvidia-container-release-info 2> /dev/null || echo "NONE")
+          echo "previous release: $PREVIOUS_RELEASE"
+          # Compare the fetched release tag with the previous release tag
+          if [ "${{ steps.get_release.outputs.RELEASE_TAG }}" != "$PREVIOUS_RELEASE" ]; then
+            echo "release_changed=true" >> $GITHUB_OUTPUT
+            echo "Release changed: true"
+          else
+            echo "release_changed=false" >> $GITHUB_OUTPUT
+            echo "Release changed: false"
+          fi
+
+  # This step fetches the new release, builds and publishes it.
+  # It only runs if changes where pushed or a new release is detected.
+  build-sysext:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write 
+    needs: check-libnvidia-container
+    if: ${{ github.event_name }} != 'schedule' || ${{needs.check-libnvidia-container.outputs.release_changed}}
+    steps:
+      - name: Get latest release
+        id: get_release
+        run: |
+          # Fetch release information and extract the release tag
+          RELEASE_TAG=$(curl -s https://api.github.com/repos/NVIDIA/libnvidia-container/releases/latest | jq -r '.tag_name')
+          echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+          echo "latest release: $RELEASE_TAG"
+      - name: Store artifacts
+        run: |
+          # Store the newly fetched release version in a file
+          echo "${{ steps.get_release.outputs.RELEASE_TAG }}" > libnvidia-container-release-info
+          echo "Saved ${{ steps.get_release.outputs.RELEASE_TAG }} to libnvidia-container-release-info"
+      - name: Upload new artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: libnvidia-container-release-info
+          path: libnvidia-container-release-info
+      - uses: actions/checkout@v4
+        with:
+          path: nvidia-runtime-sysext
+      - name: Install prerequisites
+        run: |
+          set -euxo pipefail
+          sudo apt update -qq && sudo apt install -yqq squashfs-tools xz-utils gawk build-essential
+      - name: Build nvidia-container-runtime sysext
+        run: |
+          pushd nvidia-runtime-sysext
+          ./create_nvidia_runtime_sysext.sh ${{ steps.get_release.outputs.RELEASE_TAG }}
+          echo "Release version: ${{ steps.get_release.outputs.RELEASE_TAG }}" > Release.txt
+      - name: Create a new latest release with all artifacts
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "${{ steps.get_release.outputs.RELEASE_TAG }}"
+          tag_name: "${{ steps.get_release.outputs.RELEASE_TAG }}"
+          make_latest: true
+          files: |
+            nvidia-runtime-sysext/SHA256SUMS
+            nvidia-runtime-sysext/Release.txt
+            nvidia-runtime-sysext/*.raw
+      
