@@ -53,7 +53,7 @@ jobs:
     permissions:
       contents: write 
     needs: check-libnvidia-container
-    if: github.event_name == 'push' || needs.check-libnvidia-container.outputs.release_changed == 'true'
+    if: always() && (needs.check-libnvidia-container.result == 'skipped' || needs.check-libnvidia-container.outputs.release_changed == 'true')
     steps:
       - name: Get latest release
         id: get_release
