@@ -68,7 +68,7 @@ jobs:
           echo "${{ steps.get_release.outputs.RELEASE_TAG }}" > libnvidia-container-release-info
           echo "Saved ${{ steps.get_release.outputs.RELEASE_TAG }} to libnvidia-container-release-info"
       - name: Upload new artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: libnvidia-container-release-info
           path: libnvidia-container-release-info
